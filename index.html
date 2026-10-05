@@ -157,8 +157,8 @@ input[type=color]{width:44px;height:30px;border:1px solid var(--line);border-rad
         <button data-view="top" aria-pressed="false">俯視</button>
       </div>
       <button class="btn" id="importBtn">匯入專案</button>
-      <button class="btn hidden" id="exportJsonBtn">匯出專案</button>
-      <button class="btn primary hidden" id="exportPngBtn">匯出圖片</button>
+      <button class="btn" id="exportJsonBtn">匯出專案</button>
+      <button class="btn primary" id="exportPngBtn">匯出圖片</button>
     </div>
   </header>
 
@@ -193,6 +193,10 @@ input[type=color]{width:44px;height:30px;border:1px solid var(--line);border-rad
       <div class="presets">
         <button class="btn" data-preset="standard">標準攤位 3 × 3 m</button>
         <button class="btn" data-preset="corner">轉角攤位 3 × 3 m</button>
+        <button class="btn" data-preset="tower">系統架＋立柱燈箱 3 × 3 m</button>
+        <button class="btn" data-preset="diag">斜角招牌轉角 3 × 3 m</button>
+        <button class="btn" data-preset="tilt">前傾斜招牌 3 × 3 m</button>
+        <button class="btn" data-preset="slant">斜邊造型牆 6 × 3 m</button>
         <button class="btn" data-preset="island">雙面展牆 6 × 3 m</button>
         <button class="btn" data-preset="blank">清空場景</button>
       </div>
@@ -212,7 +216,7 @@ input[type=color]{width:44px;height:30px;border:1px solid var(--line);border-rad
       </div>
       <label class="chk"><input type="checkbox" id="snapChk" checked> 吸附 5 cm / 15°</label>
     </div>
-    <div class="float bl"><span class="hint">拖曳轉動視角，右鍵拖曳平移，滾輪縮放；點元件即可選取</span></div>
+    <div class="float bl"><span class="hint">拖曳轉動視角，右鍵拖曳平移，滾輪縮放；按住 Option／Alt 拖曳元件可直接複製</span></div>
   </main>
 
   <aside class="right" id="inspector"></aside>
@@ -235,9 +239,9 @@ const lin=hex=>new THREE.Color(hex).convertSRGBToLinear();
 const ALU='#c7cbd1';
 
 const TYPES={
-  panel:{label:'背板',w:1,h:2.5,d:0.04,y:0,color:'#ffffff',frame:true,img:true},
+  panel:{label:'背板',w:1,h:2.5,d:0.04,y:0,color:'#ffffff',frame:true,img:true,shape:true},
   post:{label:'支架',w:0.05,h:2.5,d:0.05,y:0,color:ALU,metal:true},
-  header:{label:'楣板',w:3,h:0.3,d:0.04,y:2.2,color:'#ffffff',img:true},
+  header:{label:'楣板',w:3,h:0.3,d:0.04,y:2.2,color:'#ffffff',img:true,shape:true},
   counter:{label:'櫃台',w:1,h:1,d:0.5,y:0,color:'#ffffff',img:true},
   lamp:{label:'投射燈',w:0.08,h:0.08,d:0.35,y:2.5,color:'#26282b',fixed:true}
 };
@@ -320,12 +324,19 @@ const tc=new THREE.TransformControls(camera,renderer.domElement);
 tc.setSize(0.85); scene.add(tc);
 function applySnap(){const on=$('#snapChk').checked; tc.setTranslationSnap(on?0.05:null); tc.setRotationSnap(on?THREE.MathUtils.degToRad(15):null);}
 applySnap();
-tc.addEventListener('dragging-changed',e=>{orbit.enabled=!e.value; if(!e.value) commit();});
+let altHeld=false, altCopied=false;
+window.addEventListener('pointerdown',e=>{altHeld=e.altKey},true);
+tc.addEventListener('mouseDown',()=>{
+  altCopied=false; if(!altHeld) return; const it=byId(selectedId); if(!it) return;
+  const c=Object.assign({},it,{id:uid()}); state.items.splice(state.items.indexOf(it),0,c); rebuildItem(c); altCopied=true;
+});
+tc.addEventListener('dragging-changed',e=>{orbit.enabled=!e.value; if(!e.value){ commit(); renderList(); if(altCopied){toast('已複製一份');altCopied=false} }});
 tc.addEventListener('objectChange',()=>{
   const g=tc.object; if(!g) return; const it=byId(g.userData.id); if(!it) return;
   if(g.position.y<0) g.position.y=0;
   it.x=r3(g.position.x); it.y=r3(g.position.y); it.z=r3(g.position.z);
   let deg=Math.round(THREE.MathUtils.radToDeg(g.rotation.y)*10)/10; deg=((deg+180)%360+360)%360-180; it.ry=deg;
+  if(TYPES[it.type].fixed){g.rotation.x=0} else it.rx=Math.round(THREE.MathUtils.radToDeg(g.rotation.x)*10)/10;
   liveInspector();
 });
 
@@ -360,6 +371,27 @@ function imgMat(id,fw,fh,fit){
   t.needsUpdate=true;
   return new THREE.MeshStandardMaterial({map:t,roughness:.82});
 }
+function slantGeo(w,h,h2,d){
+  const sh=new THREE.Shape(); sh.moveTo(-w/2,0); sh.lineTo(w/2,0); sh.lineTo(w/2,h2); sh.lineTo(-w/2,h); sh.closePath();
+  const geo=new THREE.ExtrudeGeometry(sh,{depth:d,bevelEnabled:false}); geo.translate(0,0,-d/2);
+  const H=Math.max(h,h2), pos=geo.attributes.position, uv=geo.attributes.uv;
+  const cap=geo.groups.find(x=>x.materialIndex===0), side=geo.groups.find(x=>x.materialIndex===1);
+  for(let i=cap.start;i<cap.start+cap.count;i++){
+    const u=(pos.getX(i)+w/2)/w, back=pos.getZ(i)<0;
+    uv.setXY(i,back?1-u:u,pos.getY(i)/H);
+  }
+  uv.needsUpdate=true;
+  // split caps into back (z<0) / front (z>0) groups by sorting triangles
+  const idxBack=[],idxFront=[];
+  for(let t=cap.start;t<cap.start+cap.count;t+=3){(pos.getZ(t)<0?idxBack:idxFront).push(t)}
+  const reorder=(attr)=>{const n=attr.itemSize,src=attr.array.slice(),out=attr.array;let o=cap.start*n;
+    for(const t of idxBack.concat(idxFront)) for(let k=0;k<3*n;k++) out[o++]=src[t*n+k]; attr.needsUpdate=true};
+  ['position','normal','uv'].forEach(k=>reorder(geo.attributes[k]));
+  geo.clearGroups();
+  geo.addGroup(cap.start,idxBack.length*3,1); geo.addGroup(cap.start+idxBack.length*3,idxFront.length*3,2);
+  geo.addGroup(side.start,side.count,0);
+  return geo;
+}
 function buildItem(it){
   const T=TYPES[it.type]; const g=new THREE.Group(); g.userData.id=it.id;
   if(it.type==='lamp'){
@@ -378,6 +410,22 @@ function buildItem(it){
     const mats=[base,base,base,base,base,base];
     if(it.imgFront&&imgEls[it.imgFront]) mats[4]=imgMat(it.imgFront,it.w,it.h,it.fit);
     if(it.imgBack&&imgEls[it.imgBack]) mats[5]=imgMat(it.imgBack,it.w,it.h,it.fit);
+    const slant=it.shape==='slant'&&T.shape;
+    if(slant){
+      const H=Math.max(it.h,it.h2);
+      const sm=[base,
+        it.imgBack&&imgEls[it.imgBack]?imgMat(it.imgBack,it.w,H,it.fit):base,
+        it.imgFront&&imgEls[it.imgFront]?imgMat(it.imgFront,it.w,H,it.fit):base];
+      const m=new THREE.Mesh(slantGeo(it.w,it.h,it.h2,it.d),sm); m.castShadow=m.receiveShadow=true; g.add(m);
+      if(it.frame){
+        const f=Math.min(0.03,it.w/4,it.h/4,it.h2/4), fd=it.d+0.012;
+        const am=new THREE.MeshStandardMaterial({color:lin(ALU),metalness:.75,roughness:.32});
+        const bar=(w,h,x,y,rz)=>{const b=new THREE.Mesh(new THREE.BoxGeometry(w,h,fd),am);b.position.set(x,y,0);if(rz)b.rotation.z=rz;b.castShadow=true;g.add(b)};
+        bar(it.w,f,0,f/2); bar(f,it.h,-it.w/2+f/2,it.h/2); bar(f,it.h2,it.w/2-f/2,it.h2/2);
+        const dh=it.h2-it.h, L=Math.hypot(it.w,dh), a=Math.atan2(dh,it.w);
+        bar(L,f,0,(it.h+it.h2)/2-f/2/Math.cos(a),a);
+      }
+    } else {
     const m=new THREE.Mesh(new THREE.BoxGeometry(it.w,it.h,it.d),mats); m.position.y=it.h/2; m.castShadow=m.receiveShadow=true; g.add(m);
     if(it.frame){
       const f=Math.min(0.03,it.w/4,it.h/4), fd=it.d+0.012;
@@ -385,8 +433,9 @@ function buildItem(it){
       const bar=(w,h,x,y)=>{const b=new THREE.Mesh(new THREE.BoxGeometry(w,h,fd),am);b.position.set(x,y,0);b.castShadow=true;g.add(b)};
       bar(it.w,f,0,it.h-f/2); bar(it.w,f,0,f/2); bar(f,it.h-2*f,-it.w/2+f/2,it.h/2); bar(f,it.h-2*f,it.w/2-f/2,it.h/2);
     }
+    }
   }
-  g.position.set(it.x,it.y,it.z); g.rotation.y=THREE.MathUtils.degToRad(it.ry);
+  g.position.set(it.x,it.y,it.z); g.rotation.order='YXZ'; g.rotation.set(THREE.MathUtils.degToRad(it.rx||0),THREE.MathUtils.degToRad(it.ry),0);
   return g;
 }
 function rebuildItem(it){
@@ -419,7 +468,8 @@ function defaultPos(type){
 }
 function makeItem(type,o={}){
   const T=TYPES[type], p=defaultPos(type);
-  return Object.assign({id:uid(),type,w:T.w,h:T.h,d:T.d,x:p.x,y:T.y,z:p.z,ry:0,color:T.color,frame:!!T.frame,fit:'cover',imgFront:null,imgBack:null},o);
+  const it=Object.assign({id:uid(),type,w:T.w,h:T.h,d:T.d,x:p.x,y:T.y,z:p.z,ry:0,rx:0,shape:'rect',color:T.color,frame:!!T.frame,fit:'cover',imgFront:null,imgBack:null},o);
+  if(o.h2==null) it.h2=it.h; return it;
 }
 function addItem(type){
   const it=makeItem(type);
@@ -457,6 +507,44 @@ function preset(kind){
     [-1.5,1.5].forEach(x=>items.push(makeItem('counter',{x,z:1,w:1.2})));
     [-1.5,1.5].forEach(x=>items.push(makeItem('counter',{x,z:-1,w:1.2,ry:180})));
     items.push(makeItem('header',{x:0,z:0,y:2.5,w:5,h:0.4,d:0.06}));
+  } else if(kind==='tower'){
+    state.booth={...state.booth,w:3,d:3};
+    [-1,0,1].forEach(x=>items.push(P({x,z:-1.48})));
+    [-1,0].forEach(z=>items.push(P({x:-1.48,z,ry:90})));
+    items.push(makeItem('header',{x:0,z:-1.48,y:2.5,w:3,h:0.45,frame:true}));
+    items.push(makeItem('header',{x:-1.48,z:-0.5,y:2.5,w:2,h:0.45,ry:90,frame:true}));
+    items.push(makeItem('panel',{x:-1.3,z:1.3,w:0.4,d:0.4,h:3.2,color:'#c8262e',frame:true}));
+    items.push(makeItem('counter',{x:0.2,z:1.05,w:1.2,h:1,d:0.5}));
+    items.push(makeItem('counter',{x:1.1,z:-0.6,w:0.6,h:1.1,d:0.5,ry:-90}));
+    [-1,0,1].forEach(x=>items.push(makeItem('lamp',{x,z:-1.44,y:2.95})));
+  } else if(kind==='diag'){
+    state.booth={...state.booth,w:3,d:3,floor:'#9aa3ab'};
+    items.push(P({x:0,z:-1.47,w:3,h:2.8,d:0.06,frame:false}));
+    items.push(P({x:-1.47,z:0,w:3,h:2.8,d:0.06,ry:90,frame:false}));
+    items.push(makeItem('panel',{x:0.6,y:1.15,z:-1.43,w:1.1,h:0.62,d:0.05,color:'#15171a',frame:false}));
+    items.push(makeItem('post',{x:0.45,z:1.45,h:2.75}));
+    items.push(makeItem('post',{x:1.45,z:0.45,h:2.75}));
+    items.push(makeItem('header',{x:0.95,z:0.95,y:2.3,w:1.45,h:0.45,d:0.06,ry:45,color:'#6fbfac'}));
+    items.push(makeItem('counter',{x:-0.5,z:0.75,w:1.2,h:0.9,d:0.6,color:'#6fbfac'}));
+    items.push(makeItem('counter',{x:0.75,z:-0.75,w:1.2,h:0.9,d:0.6,ry:-90,color:'#6fbfac'}));
+    [-0.9,0.3,1.2].forEach(x=>items.push(makeItem('lamp',{x,z:-1.43,y:2.8})));
+  } else if(kind==='tilt'){
+    state.booth={...state.booth,w:3,d:3};
+    [-1,0,1].forEach(x=>items.push(P({x,z:-1.48})));
+    [-1,0].forEach(z=>items.push(P({x:-1.48,z,ry:90})));
+    [-1,0].forEach(z=>items.push(P({x:1.48,z,ry:-90})));
+    items.push(makeItem('post',{x:-1.475,z:1.475,h:2.4}));
+    items.push(makeItem('post',{x:1.475,z:1.475,h:2.4}));
+    items.push(makeItem('header',{x:0,z:1.46,y:2.4,w:3,h:0.6,d:0.05,rx:18,frame:true}));
+    items.push(makeItem('counter',{x:0.5,z:0.8,w:1.2,h:1,d:0.5}));
+    [-1,0,1].forEach(x=>items.push(makeItem('lamp',{x,z:-1.44,y:2.5})));
+  } else if(kind==='slant'){
+    state.booth={...state.booth,w:6,d:3};
+    for(let i=0;i<6;i++) items.push(P({x:-2.5+i,z:-1.48,shape:'slant',h:2.2+i*0.2,h2:2.4+i*0.2}));
+    [-1,0].forEach(z=>items.push(P({x:-2.98,z,ry:90,h:2.2})));
+    items.push(makeItem('header',{x:2.3,z:1.05,y:0,w:1.2,h:1.9,h2:2.6,d:0.06,shape:'slant',ry:-25,frame:true}));
+    items.push(makeItem('counter',{x:-1.2,z:0.6,w:1.2}));
+    items.push(makeItem('counter',{x:0.6,z:0.6,w:1.2}));
   } else { state.booth={...state.booth,w:3,d:3}; }
   state.items=items; selectedId=null; rebuildAll(); renderAll(); commit(); frame();
 }
@@ -503,7 +591,7 @@ function labelFor(it){const same=state.items.filter(i=>i.type===it.type);return 
 function renderList(){
   const ul=$('#itemList');
   if(!state.items.length){ul.innerHTML='<li class="empty-note">場景是空的。從上方新增背板，或套用範本。</li>';return}
-  ul.innerHTML=state.items.map(it=>`<li><button data-id="${it.id}" aria-current="${it.id===selectedId}"><span>${labelFor(it)}</span><small>${TYPES[it.type].fixed?'':cm(it.w)+'×'+cm(it.h)}</small></button></li>`).join('');
+  ul.innerHTML=state.items.map(it=>`<li><button data-id="${it.id}" aria-current="${it.id===selectedId}"><span>${labelFor(it)}</span><small>${TYPES[it.type].fixed?'':cm(it.w)+'×'+cm(topH(it))}</small></button></li>`).join('');
 }
 const num=(label,k,val,unit,step=1)=>`<label class="f">${label}<span class="box"><input type="number" data-k="${k}" data-u="${unit}" step="${step}" value="${val}"><em>${unit==='deg'?'°':'cm'}</em></span></label>`;
 function slot(face,id,title){
@@ -513,9 +601,11 @@ function slot(face,id,title){
   <button class="btn" data-act="upload" data-face="${face}">${has?'更換':'上傳圖片'}</button>
   ${has?`<button class="btn danger" data-act="clear" data-face="${face}">移除</button>`:''}</div></div></div>`;
 }
+const isSlant=it=>it.shape==='slant'&&TYPES[it.type].shape;
+const topH=it=>isSlant(it)?Math.max(it.h,it.h2):it.h;
 function ratioNote(it){
   const id=it.imgFront||it.imgBack; const im=id&&imgEls[id]; if(!im) return '';
-  const ia=im.naturalWidth/im.naturalHeight, fa=it.w/it.h;
+  const ia=im.naturalWidth/im.naturalHeight, fa=it.w/topH(it);
   if(Math.abs(ia/fa-1)<0.03) return '<p class="note">圖片比例與版面相符。</p>';
   return `<p class="note">圖片比例 ${ia.toFixed(2)}，版面比例 ${fa.toFixed(2)}，${it.fit==='stretch'?'目前會被拉伸變形':'目前以置中裁切填滿'}。</p>`;
 }
@@ -531,14 +621,21 @@ function renderInspector(){
     </div>
     <div class="group"><h3>使用方式</h3>
       <p class="note" style="margin:0">點選場景中的背板、楣板或櫃台，就能在這裡調整尺寸並上傳正反面設計圖。尺寸以公分輸入，設計圖會依版面比例自動置中裁切。</p>
-      <div class="kbd"><kbd>W</kbd> 移動　<kbd>E</kbd> 旋轉　<kbd>Ctrl</kbd>+<kbd>D</kbd> 向右複製<br><kbd>Delete</kbd> 刪除　<kbd>Esc</kbd> 取消選取　<kbd>Ctrl</kbd>+<kbd>Z</kbd> 復原</div>
+      <div class="kbd"><kbd>Option</kbd>／<kbd>Alt</kbd>＋拖曳 原地留一份複製<br><kbd>⌘</kbd>／<kbd>Ctrl</kbd>+<kbd>D</kbd> 向右接一片<br><kbd>⌘</kbd>／<kbd>Ctrl</kbd>+<kbd>C</kbd>、<kbd>V</kbd> 拷貝貼上<br>方向鍵 微調 5 cm，加 <kbd>Shift</kbd> 微調 1 cm<br><kbd>W</kbd> 移動　<kbd>E</kbd> 旋轉　<kbd>Delete</kbd> 刪除<br><kbd>Esc</kbd> 取消選取　<kbd>⌘</kbd>／<kbd>Ctrl</kbd>+<kbd>Z</kbd> 復原</div>
     </div>`;
     return;
   }
   const T=TYPES[it.type];
-  let h=`<div class="insp-head"><h2>${labelFor(it)}</h2><span class="dim">${T.fixed?'':cm(it.w)+' × '+cm(it.h)+' cm'}</span></div>`;
-  if(!T.fixed) h+=`<div class="group"><h3>尺寸</h3><div class="fields">${num('寬','w',cm(it.w),'cm')}${num('高','h',cm(it.h),'cm')}${num('厚','d',cm(it.d),'cm')}</div></div>`;
-  h+=`<div class="group"><h3>位置</h3><div class="fields two">${num('左右 X','x',cm(it.x),'cm',5)}${num('前後 Z','z',cm(it.z),'cm',5)}${num('離地','y',cm(it.y),'cm',5)}${num('旋轉','ry',Math.round(it.ry),'deg',15)}</div></div>`;
+  let h=`<div class="insp-head"><h2>${labelFor(it)}</h2><span class="dim">${T.fixed?'':cm(it.w)+' × '+cm(topH(it))+' cm'}</span></div>`;
+  if(!T.fixed){
+    h+=`<div class="group"><h3>尺寸</h3>`;
+    if(T.shape) h+=`<div class="row" style="margin-bottom:10px"><span>外形</span><div class="seg"><button data-shape="rect" aria-pressed="${!isSlant(it)}">矩形</button><button data-shape="slant" aria-pressed="${isSlant(it)}">斜邊</button></div></div>`;
+    h+= isSlant(it)
+      ? `<div class="fields two">${num('寬','w',cm(it.w),'cm')}${num('厚','d',cm(it.d),'cm')}${num('左側高','h',cm(it.h),'cm',5)}${num('右側高','h2',cm(it.h2),'cm',5)}</div>`
+      : `<div class="fields">${num('寬','w',cm(it.w),'cm')}${num('高','h',cm(it.h),'cm')}${num('厚','d',cm(it.d),'cm')}</div>`;
+    h+=`</div>`;
+  }
+  h+=`<div class="group"><h3>位置</h3><div class="fields two">${num('左右 X','x',cm(it.x),'cm',5)}${num('前後 Z','z',cm(it.z),'cm',5)}${num('離地','y',cm(it.y),'cm',5)}${num('旋轉','ry',Math.round(it.ry),'deg',15)}${T.fixed?'':num('前傾','rx',Math.round(it.rx||0),'deg',5)}</div>${T.fixed?'':'<p class="note">前傾為正值時上緣往正面倒，適合做斜招牌。</p>'}</div>`;
   h+=`<div class="group"><h3>外觀</h3><div class="row"><label for="icolor">${T.img?'底色':'顏色'}</label><input type="color" id="icolor" data-k="color" value="${it.color}"></div>`;
   if(it.type==='panel'||it.type==='header'||it.type==='counter') h+=`<div class="row"><label for="iframe">鋁框邊條</label><input type="checkbox" class="switch" id="iframe" data-k="frame" ${it.frame?'checked':''}></div>`;
   h+=`</div>`;
@@ -546,14 +643,14 @@ function renderInspector(){
     h+=`<div class="group"><h3>設計圖</h3>${slot('front',it.imgFront,'正面')}${slot('back',it.imgBack,'背面')}
     <div class="row" style="margin-top:12px"><span>圖片填入方式</span><div class="seg"><button data-fit="cover" aria-pressed="${it.fit!=='stretch'}">裁切填滿</button><button data-fit="stretch" aria-pressed="${it.fit==='stretch'}">拉伸</button></div></div>
     ${ratioNote(it)}
-    <div class="print"><div><span>輸出尺寸</span><b>${cm(it.w)} × ${cm(it.h)} cm</b></div><div><span>150 dpi 建議</span><b>${Math.round(it.w*100/2.54*150)} × ${Math.round(it.h*100/2.54*150)} px</b></div></div></div>`;
+    <div class="print"><div><span>輸出尺寸${isSlant(it)?'（含斜切外框）':''}</span><b>${cm(it.w)} × ${cm(topH(it))} cm</b></div><div><span>150 dpi 建議</span><b>${Math.round(it.w*100/2.54*150)} × ${Math.round(topH(it)*100/2.54*150)} px</b></div></div></div>`;
   }
   h+=`<div class="actions"><button class="btn" data-act="dup">向右複製</button><button class="btn danger" data-act="del">刪除</button></div>`;
   el.innerHTML=h;
 }
 function liveInspector(){
   const it=byId(selectedId); if(!it) return;
-  const map={x:cm(it.x),z:cm(it.z),y:cm(it.y),ry:Math.round(it.ry)};
+  const map={x:cm(it.x),z:cm(it.z),y:cm(it.y),ry:Math.round(it.ry),rx:Math.round(it.rx||0)};
   for(const k in map){const inp=$(`#inspector [data-k="${k}"]`); if(inp&&document.activeElement!==inp) inp.value=map[k];}
 }
 function renderAll(){renderList();renderInspector();}
@@ -572,16 +669,19 @@ function fieldChange(t){
     let v=parseFloat(t.value); if(!isFinite(v)) return false;
     if(t.dataset.u==='cm') v=v/100;
     if(['w','h','d'].includes(k)) v=Math.max(0.01,v);
+    if(k==='h2') v=Math.max(0.01,v);
     if(k==='y') v=Math.max(0,v);
+    if(k==='rx') v=Math.max(-80,Math.min(80,v));
     it[k]=r3(v);
   }
   rebuildItem(it); return true;
 }
-insp.addEventListener('input',e=>{if(fieldChange(e.target)){const d=insp.querySelector('.insp-head .dim');const it=byId(selectedId);if(d&&it&&!TYPES[it.type].fixed)d.textContent=cm(it.w)+' × '+cm(it.h)+' cm';renderList();}});
+insp.addEventListener('input',e=>{if(fieldChange(e.target)){const d=insp.querySelector('.insp-head .dim');const it=byId(selectedId);if(d&&it&&!TYPES[it.type].fixed)d.textContent=cm(it.w)+' × '+cm(topH(it))+' cm';renderList();}});
 insp.addEventListener('change',e=>{if(e.target.dataset.k){commit();renderInspector();}});
 let uploadFace=null;
 insp.addEventListener('click',e=>{
   const b=e.target.closest('button'); if(!b) return; const it=byId(selectedId);
+  if(b.dataset.shape&&it){it.shape=b.dataset.shape; if(it.h2==null) it.h2=it.h; if(it.shape==='slant'&&Math.abs(it.h2-it.h)<0.01) it.h2=r3(it.h+0.3); rebuildItem(it); commit(); renderAll(); return}
   if(b.dataset.fit&&it){it.fit=b.dataset.fit; rebuildItem(it); commit(); renderInspector(); return}
   const a=b.dataset.act; if(!a) return;
   if(a==='upload'){uploadFace=b.dataset.face; $('#imgInput').value=''; $('#imgInput').click();}
@@ -620,12 +720,21 @@ $('#snapChk').addEventListener('change',applySnap);
 $('#undoBtn').addEventListener('click',undo);
 $('#redoBtn').addEventListener('click',redo);
 
+let clip=null;
 window.addEventListener('keydown',e=>{
   const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='select'||tag==='textarea') return;
   const mod=e.ctrlKey||e.metaKey;
   if(mod&&e.key.toLowerCase()==='z'){e.preventDefault(); e.shiftKey?redo():undo(); return}
   if(mod&&e.key.toLowerCase()==='y'){e.preventDefault(); redo(); return}
   if(mod&&e.key.toLowerCase()==='d'){e.preventDefault(); duplicate(); return}
+  if(mod&&e.key.toLowerCase()==='c'&&selectedId){clip=JSON.stringify(byId(selectedId)); toast('已拷貝元件'); return}
+  if(mod&&e.key.toLowerCase()==='v'&&clip){e.preventDefault(); const c=Object.assign(JSON.parse(clip),{id:uid()}); c.x=r3(c.x+0.1); c.z=r3(c.z+0.1); clip=JSON.stringify(c);
+    state.items.push(c); rebuildItem(c); select(c.id); commit(); return}
+  if(e.key.startsWith('Arrow')&&selectedId&&!mod){
+    e.preventDefault(); const it=byId(selectedId), st=e.shiftKey?0.01:0.05;
+    if(e.key==='ArrowLeft') it.x=r3(it.x-st); if(e.key==='ArrowRight') it.x=r3(it.x+st);
+    if(e.key==='ArrowUp') it.z=r3(it.z-st); if(e.key==='ArrowDown') it.z=r3(it.z+st);
+    rebuildItem(it); liveInspector(); commit(); return}
   if(mod) return;
   if(e.key==='Delete'||e.key==='Backspace'){if(selectedId){e.preventDefault();removeSel()}}
   else if(e.key==='Escape') select(null);
@@ -636,14 +745,13 @@ window.addEventListener('keydown',e=>{
 /* ---------- export / import ---------- */
 let toastT=null;
 function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2200)}
-let downloads=null;
-if(window.claude&&typeof window.claude.use==='function'){
-  window.claude.use('downloads').then(d=>{downloads=d; if(d){$('#exportPngBtn').classList.remove('hidden');$('#exportJsonBtn').classList.remove('hidden');}}).catch(()=>{});
-}
-async function save(filename,data){
-  if(!downloads) return;
-  try{await downloads.save({filename,data}); toast('已匯出 '+filename)}
-  catch(err){ if(err&&err.code==='declined') return; if(err&&err.code==='rate_limited') toast('請稍候再試一次'); else toast('這裡無法匯出檔案') }
+function save(filename,data){
+  try{
+    const blob=data instanceof Blob?data:new Blob([data],{type:'application/json'});
+    const url=URL.createObjectURL(blob); const el=document.createElement('a');
+    el.href=url; el.download=filename; document.body.appendChild(el); el.click(); el.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),2000); toast('已匯出 '+filename);
+  }catch(err){toast('無法匯出檔案，請換一個瀏覽器再試')}
 }
 $('#exportPngBtn').addEventListener('click',async()=>{
   const sel=selectedId; tc.detach(); selBox.visible=false;
