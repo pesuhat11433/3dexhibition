@@ -1,0 +1,698 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>展場 3D 組裝台</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#e6e8eb; --surface:#fbfbfc; --surface-2:#f0f2f4; --ink:#1a1d21; --muted:#646b73;
+  --line:#d4d8dd; --accent:#2f5bea; --accent-soft:#e3e9fd; --accent-ink:#ffffff; --danger:#c3352b;
+  --scene:#dcdfe3; --hall:#c4c8cd;
+  --font:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,-apple-system,sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#16181b; --surface:#202328; --surface-2:#2a2e34; --ink:#e8eaed; --muted:#9aa1a9;
+    --line:#363b42; --accent:#7391ff; --accent-soft:#283253; --accent-ink:#0f1320; --danger:#ff7468;
+    --scene:#2b2e33; --hall:#3b3f45;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#16181b; --surface:#202328; --surface-2:#2a2e34; --ink:#e8eaed; --muted:#9aa1a9;
+  --line:#363b42; --accent:#7391ff; --accent-soft:#283253; --accent-ink:#0f1320; --danger:#ff7468;
+  --scene:#2b2e33; --hall:#3b3f45;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.app{height:100%;display:grid;grid-template-columns:232px minmax(0,1fr) 292px;grid-template-rows:56px minmax(0,1fr);
+  grid-template-areas:"top top top" "left view right"}
+.top{grid-area:top;display:flex;align-items:center;gap:16px;padding:0 16px;background:var(--surface);border-bottom:1px solid var(--line);min-width:0}
+.brand{font-weight:700;font-size:16px;letter-spacing:.02em;white-space:nowrap}
+.brand small{font-weight:400;color:var(--muted);font-size:13px;margin-left:8px}
+.top .spacer{flex:1}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:6px 12px;line-height:1.3;white-space:nowrap}
+.btn:hover{background:var(--surface-2)}
+.btn:disabled{opacity:.4;cursor:default}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.07)}
+.btn.danger{color:var(--danger)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+.seg button{border:0;background:transparent;padding:6px 11px;border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent);font-weight:500}
+.top-actions{display:flex;gap:8px;align-items:center;overflow-x:auto;min-width:0}
+
+.left,.right{background:var(--surface);overflow-y:auto;min-height:0}
+.left{grid-area:left;border-right:1px solid var(--line);padding:16px 14px}
+.right{grid-area:right;border-left:1px solid var(--line);padding:16px}
+.left h2,.right h3{font-size:12px;font-weight:500;color:var(--muted);margin:0 0 8px;letter-spacing:.04em}
+.left section+section{margin-top:22px}
+
+.add-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.add{display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);text-align:left}
+.add:hover{border-color:var(--accent);background:var(--accent-soft)}
+.add svg{width:30px;height:30px;color:var(--ink)}
+.add b{font-weight:500;font-size:14px}
+.add span{font-size:12px;color:var(--muted);margin-top:-6px}
+.presets{display:flex;flex-direction:column;gap:6px}
+.presets .btn{text-align:left}
+
+.list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.list button{width:100%;display:flex;justify-content:space-between;gap:8px;border:0;background:transparent;padding:6px 8px;border-radius:6px;text-align:left}
+.list button:hover{background:var(--surface-2)}
+.list button[aria-current="true"]{background:var(--accent-soft);color:var(--accent)}
+.list small{color:var(--muted);font-variant-numeric:tabular-nums}
+.list button[aria-current="true"] small{color:inherit}
+.empty-note{color:var(--muted);font-size:13px}
+
+.view{grid-area:view;position:relative;min-width:0;min-height:0;background:var(--scene)}
+#viewport{position:absolute;inset:0}
+#viewport canvas{display:block;width:100%;height:100%;touch-action:none}
+.float{position:absolute;display:flex;gap:8px;align-items:center}
+.float.tl{top:12px;left:12px}
+.float.tr{top:12px;right:12px}
+.float.bl{bottom:12px;left:12px;right:12px;pointer-events:none}
+.hint{font-size:12px;color:var(--muted);background:color-mix(in srgb,var(--surface) 80%,transparent);padding:4px 10px;border-radius:6px}
+.chk{display:inline-flex;gap:6px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:5px 10px;font-size:13px}
+
+.insp-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:14px}
+.insp-head h2{margin:0;font-size:18px;font-weight:700}
+.insp-head .dim{color:var(--muted);font-variant-numeric:tabular-nums;font-size:13px}
+.group{padding:14px 0;border-top:1px solid var(--line)}
+.fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.fields.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.f{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted)}
+.f .box{display:flex;align-items:center;border:1px solid var(--line);border-radius:7px;background:var(--surface-2);padding:0 8px}
+.f .box:focus-within{border-color:var(--accent)}
+.f input[type=number]{width:100%;min-width:0;border:0;background:transparent;padding:6px 0;font-size:14px;color:var(--ink);font-variant-numeric:tabular-nums;outline:none}
+.f em{font-style:normal;font-size:11px;color:var(--muted);margin-left:4px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px}
+.row:first-of-type{margin-top:0}
+.row label{color:var(--ink)}
+input[type=color]{width:44px;height:30px;border:1px solid var(--line);border-radius:7px;padding:2px;background:var(--surface-2)}
+.switch{appearance:none;width:36px;height:20px;border-radius:999px;background:var(--line);position:relative;cursor:pointer;transition:background .15s}
+.switch::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .15s}
+.switch:checked{background:var(--accent)}
+.switch:checked::after{transform:translateX(16px)}
+
+.slot{display:grid;grid-template-columns:72px 1fr;gap:10px;align-items:center;margin-top:10px}
+.slot:first-of-type{margin-top:0}
+.thumb{width:72px;height:72px;border-radius:8px;border:1px dashed var(--line);background:var(--surface-2) center/contain no-repeat;display:grid;place-items:center;color:var(--muted);font-size:20px}
+.thumb.has{border-style:solid}
+.slot-info{display:flex;flex-direction:column;gap:6px;min-width:0}
+.slot-info b{font-weight:500}
+.slot-info .acts{display:flex;gap:6px;flex-wrap:wrap}
+.slot-info .btn{padding:4px 10px;font-size:13px}
+.note{font-size:12px;color:var(--muted);margin:10px 0 0}
+.print{margin-top:12px;padding:10px 12px;border-radius:8px;background:var(--surface-2);font-size:13px;font-variant-numeric:tabular-nums}
+.print div{display:flex;justify-content:space-between;gap:8px}
+.print span{color:var(--muted)}
+.actions{display:flex;gap:8px;padding-top:14px;border-top:1px solid var(--line)}
+.actions .btn{flex:1}
+.kbd{font-size:12px;color:var(--muted);margin-top:16px;line-height:1.8}
+.kbd kbd{font-family:inherit;font-size:11px;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;background:var(--surface-2)}
+
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);opacity:0;
+  background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:8px;font-size:13px;pointer-events:none;transition:opacity .2s,transform .2s;z-index:10}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.hidden{display:none !important}
+
+@media (max-width:900px){
+  .app{height:auto;min-height:100%;grid-template-columns:1fr;grid-template-rows:auto 58vh auto auto;
+    grid-template-areas:"top" "view" "right" "left"}
+  .top{flex-wrap:wrap;padding:10px 12px;gap:8px}
+  .brand small{display:none}
+  .top .spacer{display:none}
+  .top-actions{width:100%}
+  .left,.right{border:0;border-top:1px solid var(--line);overflow:visible}
+  .float.bl{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none !important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">展場 3D 組裝台<small id="boothLabel">攤位 300 × 300 cm</small></div>
+    <div class="spacer"></div>
+    <div class="top-actions">
+      <button class="btn" id="undoBtn" title="復原 (Ctrl+Z)" disabled>復原</button>
+      <button class="btn" id="redoBtn" title="重做 (Ctrl+Shift+Z)" disabled>重做</button>
+      <div class="seg" role="group" aria-label="視角">
+        <button data-view="persp" aria-pressed="true">透視</button>
+        <button data-view="front" aria-pressed="false">正面</button>
+        <button data-view="side" aria-pressed="false">側面</button>
+        <button data-view="top" aria-pressed="false">俯視</button>
+      </div>
+      <button class="btn" id="importBtn">匯入專案</button>
+      <button class="btn hidden" id="exportJsonBtn">匯出專案</button>
+      <button class="btn primary hidden" id="exportPngBtn">匯出圖片</button>
+    </div>
+  </header>
+
+  <aside class="left">
+    <section>
+      <h2>新增元件</h2>
+      <div class="add-grid">
+        <button class="add" data-add="panel">
+          <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="9" y="3" width="14" height="26" rx="1"/><rect x="11" y="5" width="10" height="22" fill="currentColor" opacity=".12" stroke="none"/></svg>
+          <b>背板</b><span>可貼設計圖</span>
+        </button>
+        <button class="add" data-add="post">
+          <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="14" y="3" width="4" height="26" rx="1"/><path d="M10 29h12"/></svg>
+          <b>支架</b><span>鋁柱</span>
+        </button>
+        <button class="add" data-add="header">
+          <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="11" width="28" height="7" rx="1"/><path d="M4 18v11M28 18v11" opacity=".4"/></svg>
+          <b>楣板</b><span>上方招牌</span>
+        </button>
+        <button class="add" data-add="counter">
+          <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 13l5-4h17l-5 4z"/><path d="M5 13h17v15H5zM22 13l5-4v15l-5 4"/></svg>
+          <b>櫃台</b><span>展示台</span>
+        </button>
+        <button class="add" data-add="lamp">
+          <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 8h4M8 8h14"/><path d="M19 8l6 6-3 3-6-6z"/><path d="M23 18l3 6M20 19l1 6" opacity=".4"/></svg>
+          <b>投射燈</b><span>打光</span>
+        </button>
+      </div>
+    </section>
+    <section>
+      <h2>從範本開始</h2>
+      <div class="presets">
+        <button class="btn" data-preset="standard">標準攤位 3 × 3 m</button>
+        <button class="btn" data-preset="corner">轉角攤位 3 × 3 m</button>
+        <button class="btn" data-preset="island">雙面展牆 6 × 3 m</button>
+        <button class="btn" data-preset="blank">清空場景</button>
+      </div>
+    </section>
+    <section>
+      <h2>場景元件</h2>
+      <ul class="list" id="itemList"></ul>
+    </section>
+  </aside>
+
+  <main class="view">
+    <div id="viewport"></div>
+    <div class="float tl">
+      <div class="seg" role="group" aria-label="操作模式">
+        <button data-mode="translate" aria-pressed="true" title="移動 (W)">移動</button>
+        <button data-mode="rotate" aria-pressed="false" title="旋轉 (E)">旋轉</button>
+      </div>
+      <label class="chk"><input type="checkbox" id="snapChk" checked> 吸附 5 cm / 15°</label>
+    </div>
+    <div class="float bl"><span class="hint">拖曳轉動視角，右鍵拖曳平移，滾輪縮放；點元件即可選取</span></div>
+  </main>
+
+  <aside class="right" id="inspector"></aside>
+</div>
+<input type="file" id="imgInput" accept="image/*" class="hidden">
+<input type="file" id="jsonInput" accept=".json,application/json" class="hidden">
+<div class="toast" id="toast" role="status"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js"></script>
+<script>
+(function(){
+const $=s=>document.querySelector(s);
+const $$=s=>Array.from(document.querySelectorAll(s));
+const uid=()=>Math.random().toString(36).slice(2,10);
+const r3=v=>Math.round(v*1000)/1000;
+const cm=v=>Math.round(v*100);
+const lin=hex=>new THREE.Color(hex).convertSRGBToLinear();
+const ALU='#c7cbd1';
+
+const TYPES={
+  panel:{label:'背板',w:1,h:2.5,d:0.04,y:0,color:'#ffffff',frame:true,img:true},
+  post:{label:'支架',w:0.05,h:2.5,d:0.05,y:0,color:ALU,metal:true},
+  header:{label:'楣板',w:3,h:0.3,d:0.04,y:2.2,color:'#ffffff',img:true},
+  counter:{label:'櫃台',w:1,h:1,d:0.5,y:0,color:'#ffffff',img:true},
+  lamp:{label:'投射燈',w:0.08,h:0.08,d:0.35,y:2.5,color:'#26282b',fixed:true}
+};
+
+let state={booth:{w:3,d:3,floor:'#8c97a3',grid:true},items:[]};
+const images={};   // id -> dataURL
+const imgEls={};   // id -> HTMLImageElement
+let selectedId=null;
+let mode='translate';
+let imagesDirty=false;
+
+/* ---------- storage (IndexedDB) ---------- */
+const store={db:null,
+  open(){return new Promise(res=>{try{const r=indexedDB.open('booth-builder',1);
+    r.onupgradeneeded=()=>r.result.createObjectStore('kv');
+    r.onsuccess=()=>{this.db=r.result;res(true)};r.onerror=()=>res(false);}catch(e){res(false)}})},
+  get(k){return new Promise(res=>{if(!this.db)return res(null);try{const q=this.db.transaction('kv').objectStore('kv').get(k);
+    q.onsuccess=()=>res(q.result||null);q.onerror=()=>res(null);}catch(e){res(null)}})},
+  set(k,v){return new Promise(res=>{if(!this.db)return res(false);try{const t=this.db.transaction('kv','readwrite');
+    t.objectStore('kv').put(v,k);t.oncomplete=()=>res(true);t.onerror=()=>res(false);}catch(e){res(false)}})}
+};
+let saveTimer=null;
+function scheduleSave(){clearTimeout(saveTimer);saveTimer=setTimeout(async()=>{
+  await store.set('project',JSON.parse(JSON.stringify(state)));
+  if(imagesDirty){
+    const used=usedImageIds(); const out={}; for(const id of used) if(images[id]) out[id]=images[id];
+    const ok=await store.set('images',out); if(ok) imagesDirty=false; else toast('圖片太大，未能存進瀏覽器，請匯出專案備份');
+  }},500)}
+function usedImageIds(){const s=new Set();state.items.forEach(i=>{if(i.imgFront)s.add(i.imgFront);if(i.imgBack)s.add(i.imgBack)});return s}
+
+/* ---------- history ---------- */
+let hist=[],fut=[],last='';
+const snap=()=>JSON.stringify(state);
+function commit(){const s=snap(); if(s===last) return; hist.push(last); if(hist.length>100) hist.shift(); fut=[]; last=s; scheduleSave(); updateUndo();}
+function undo(){if(!hist.length)return; fut.push(last); last=hist.pop(); restore(last);}
+function redo(){if(!fut.length)return; hist.push(last); last=fut.pop(); restore(last);}
+function restore(s){state=JSON.parse(s); if(!state.items.find(i=>i.id===selectedId)) selectedId=null; rebuildAll(); renderAll(); scheduleSave(); updateUndo();}
+function updateUndo(){$('#undoBtn').disabled=!hist.length;$('#redoBtn').disabled=!fut.length;}
+
+/* ---------- three.js setup ---------- */
+const host=$('#viewport');
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+renderer.outputEncoding=THREE.sRGBEncoding;
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+host.appendChild(renderer.domElement);
+const maxAniso=renderer.capabilities.getMaxAnisotropy();
+
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(38,1,0.05,200);
+camera.position.set(5.4,3.3,6.6);
+const orbit=new THREE.OrbitControls(camera,renderer.domElement);
+orbit.target.set(0,1.1,0); orbit.enableDamping=true; orbit.dampingFactor=.12;
+orbit.maxPolarAngle=Math.PI/2-0.02; orbit.minDistance=0.8; orbit.maxDistance=40;
+
+scene.add(new THREE.HemisphereLight(0xffffff,0x80868e,0.7));
+const sun=new THREE.DirectionalLight(0xffffff,0.75); sun.position.set(4,9,6); sun.castShadow=true;
+sun.shadow.mapSize.set(2048,2048); Object.assign(sun.shadow.camera,{left:-9,right:9,top:9,bottom:-9,near:1,far:30});
+sun.shadow.bias=-0.0004; scene.add(sun);
+const fill=new THREE.DirectionalLight(0xffffff,0.32); fill.position.set(-6,4,-2); scene.add(fill);
+const hall=new THREE.Mesh(new THREE.PlaneGeometry(120,120),new THREE.MeshStandardMaterial({roughness:.92}));
+hall.rotation.x=-Math.PI/2; hall.receiveShadow=true; scene.add(hall);
+
+function applySceneTheme(){
+  const cs=getComputedStyle(document.documentElement);
+  const bg=cs.getPropertyValue('--scene').trim()||'#dcdfe3';
+  scene.background=new THREE.Color(bg);
+  scene.fog=new THREE.Fog(lin(bg),20,55);
+  hall.material.color.copy(lin(cs.getPropertyValue('--hall').trim()||'#c4c8cd'));
+  selBox.material.color.copy(lin(cs.getPropertyValue('--accent').trim()||'#2f5bea'));
+}
+const itemRoot=new THREE.Group(); scene.add(itemRoot);
+const objs=new Map();
+const selBox=new THREE.BoxHelper(undefined,0x2f5bea); selBox.visible=false; selBox.material.depthTest=false; selBox.renderOrder=5; scene.add(selBox);
+applySceneTheme();
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',applySceneTheme);
+new MutationObserver(applySceneTheme).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+
+const tc=new THREE.TransformControls(camera,renderer.domElement);
+tc.setSize(0.85); scene.add(tc);
+function applySnap(){const on=$('#snapChk').checked; tc.setTranslationSnap(on?0.05:null); tc.setRotationSnap(on?THREE.MathUtils.degToRad(15):null);}
+applySnap();
+tc.addEventListener('dragging-changed',e=>{orbit.enabled=!e.value; if(!e.value) commit();});
+tc.addEventListener('objectChange',()=>{
+  const g=tc.object; if(!g) return; const it=byId(g.userData.id); if(!it) return;
+  if(g.position.y<0) g.position.y=0;
+  it.x=r3(g.position.x); it.y=r3(g.position.y); it.z=r3(g.position.z);
+  let deg=Math.round(THREE.MathUtils.radToDeg(g.rotation.y)*10)/10; deg=((deg+180)%360+360)%360-180; it.ry=deg;
+  liveInspector();
+});
+
+/* ---------- booth floor ---------- */
+let boothFloor=null,grid=null;
+function disposeObj(o){o.traverse(n=>{if(n.geometry)n.geometry.dispose(); const m=n.material; if(m)(Array.isArray(m)?m:[m]).forEach(mm=>{if(mm.map)mm.map.dispose();mm.dispose()})})}
+function buildBooth(){
+  if(boothFloor){scene.remove(boothFloor);disposeObj(boothFloor)} if(grid){scene.remove(grid);disposeObj(grid);grid=null}
+  const {w,d,floor}=state.booth;
+  boothFloor=new THREE.Mesh(new THREE.BoxGeometry(w,0.02,d),new THREE.MeshStandardMaterial({color:lin(floor),roughness:.96}));
+  boothFloor.position.y=0.01; boothFloor.receiveShadow=true; scene.add(boothFloor);
+  if(state.booth.grid){
+    const p=[],y=0.022;
+    for(let x=0;x<=w+1e-6;x+=0.5) p.push(x-w/2,y,-d/2,x-w/2,y,d/2);
+    for(let z=0;z<=d+1e-6;z+=0.5) p.push(-w/2,y,z-d/2,w/2,y,z-d/2);
+    const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.Float32BufferAttribute(p,3));
+    grid=new THREE.LineSegments(g,new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:.28}));
+    scene.add(grid);
+  }
+  $('#boothLabel').textContent=`攤位 ${cm(w)} × ${cm(d)} cm`;
+}
+
+/* ---------- items ---------- */
+const byId=id=>state.items.find(i=>i.id===id);
+function imgMat(id,fw,fh,fit){
+  const im=imgEls[id]; const t=new THREE.Texture(im);
+  t.encoding=THREE.sRGBEncoding; t.anisotropy=maxAniso; t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping;
+  if(fit!=='stretch'){
+    const fa=fw/fh, ia=im.naturalWidth/im.naturalHeight;
+    if(ia>fa){t.repeat.set(fa/ia,1);t.offset.set((1-fa/ia)/2,0)} else {t.repeat.set(1,ia/fa);t.offset.set(0,(1-ia/fa)/2)}
+  }
+  t.needsUpdate=true;
+  return new THREE.MeshStandardMaterial({map:t,roughness:.82});
+}
+function buildItem(it){
+  const T=TYPES[it.type]; const g=new THREE.Group(); g.userData.id=it.id;
+  if(it.type==='lamp'){
+    const m=new THREE.MeshStandardMaterial({color:lin(it.color),roughness:.4,metalness:.5});
+    const add=(geo,x,y,z,rx)=>{const k=new THREE.Mesh(geo,m);k.position.set(x,y,z);if(rx)k.rotation.x=rx;k.castShadow=true;g.add(k);return k};
+    add(new THREE.BoxGeometry(0.05,0.05,0.03),0,0,0);
+    add(new THREE.CylinderGeometry(0.008,0.008,0.35,8),0,0,0.175,Math.PI/2);
+    const head=add(new THREE.CylinderGeometry(0.035,0.025,0.11,16),0,-0.03,0.36,0);
+    head.rotation.x=-0.5;
+    const glow=new THREE.Mesh(new THREE.CircleGeometry(0.024,16),new THREE.MeshBasicMaterial({color:0xfff6e0}));
+    glow.position.set(0,-0.08,0.39); glow.rotation.x=Math.PI/2+0.5; g.add(glow);
+    const spot=new THREE.SpotLight(0xfff1d6,0.9,7,0.62,0.7,1.2); spot.position.set(0,-0.06,0.37);
+    const tgt=new THREE.Object3D(); tgt.position.set(0,-1.6,1.0); g.add(tgt); spot.target=tgt; g.add(spot);
+  } else {
+    const base=new THREE.MeshStandardMaterial({color:lin(it.color),roughness:T.metal?.32:.78,metalness:T.metal?.75:0});
+    const mats=[base,base,base,base,base,base];
+    if(it.imgFront&&imgEls[it.imgFront]) mats[4]=imgMat(it.imgFront,it.w,it.h,it.fit);
+    if(it.imgBack&&imgEls[it.imgBack]) mats[5]=imgMat(it.imgBack,it.w,it.h,it.fit);
+    const m=new THREE.Mesh(new THREE.BoxGeometry(it.w,it.h,it.d),mats); m.position.y=it.h/2; m.castShadow=m.receiveShadow=true; g.add(m);
+    if(it.frame){
+      const f=Math.min(0.03,it.w/4,it.h/4), fd=it.d+0.012;
+      const am=new THREE.MeshStandardMaterial({color:lin(ALU),metalness:.75,roughness:.32});
+      const bar=(w,h,x,y)=>{const b=new THREE.Mesh(new THREE.BoxGeometry(w,h,fd),am);b.position.set(x,y,0);b.castShadow=true;g.add(b)};
+      bar(it.w,f,0,it.h-f/2); bar(it.w,f,0,f/2); bar(f,it.h-2*f,-it.w/2+f/2,it.h/2); bar(f,it.h-2*f,it.w/2-f/2,it.h/2);
+    }
+  }
+  g.position.set(it.x,it.y,it.z); g.rotation.y=THREE.MathUtils.degToRad(it.ry);
+  return g;
+}
+function rebuildItem(it){
+  const old=objs.get(it.id); const wasAttached=old&&tc.object===old;
+  if(old){ if(wasAttached) tc.detach(); itemRoot.remove(old); disposeObj(old); }
+  const g=buildItem(it); itemRoot.add(g); objs.set(it.id,g);
+  if(it.id===selectedId) attachSel();
+}
+function rebuildAll(){
+  tc.detach(); objs.forEach(o=>{itemRoot.remove(o);disposeObj(o)}); objs.clear();
+  buildBooth(); state.items.forEach(rebuildItem); attachSel();
+}
+function attachSel(){
+  const g=selectedId&&objs.get(selectedId);
+  if(g){tc.attach(g); selBox.setFromObject(g); selBox.visible=true;} else {tc.detach(); selBox.visible=false;}
+  setMode(mode);
+}
+function select(id){selectedId=id; attachSel(); renderAll();}
+
+function defaultPos(type){
+  const {w,d}=state.booth;
+  switch(type){
+    case 'panel': return {x:0,z:-d/2+0.02};
+    case 'post': return {x:w/2-0.025,z:d/2-0.025};
+    case 'header': return {x:0,z:d/2-0.02};
+    case 'counter': return {x:0,z:d/2-0.6};
+    case 'lamp': return {x:0,z:-d/2+0.05};
+  }
+  return {x:0,z:0};
+}
+function makeItem(type,o={}){
+  const T=TYPES[type], p=defaultPos(type);
+  return Object.assign({id:uid(),type,w:T.w,h:T.h,d:T.d,x:p.x,y:T.y,z:p.z,ry:0,color:T.color,frame:!!T.frame,fit:'cover',imgFront:null,imgBack:null},o);
+}
+function addItem(type){
+  const it=makeItem(type);
+  if(type==='header') it.w=state.booth.w;
+  state.items.push(it); rebuildItem(it); select(it.id); commit();
+}
+function duplicate(){
+  const it=byId(selectedId); if(!it) return;
+  const a=THREE.MathUtils.degToRad(it.ry), step=it.type==='lamp'?1:it.w;
+  const c=Object.assign({},it,{id:uid(),x:r3(it.x+Math.cos(a)*step),z:r3(it.z-Math.sin(a)*step)});
+  state.items.push(c); rebuildItem(c); select(c.id); commit(); toast('已向右複製一份');
+}
+function removeSel(){
+  if(!selectedId) return; const g=objs.get(selectedId);
+  tc.detach(); if(g){itemRoot.remove(g);disposeObj(g);objs.delete(selectedId)}
+  state.items=state.items.filter(i=>i.id!==selectedId); selectedId=null; attachSel(); renderAll(); commit();
+}
+
+/* ---------- presets ---------- */
+function preset(kind){
+  const P=o=>makeItem('panel',o), items=[];
+  if(kind==='standard'||kind==='corner'){
+    state.booth={...state.booth,w:3,d:3};
+    [-1,0,1].forEach(x=>items.push(P({x,z:-1.48})));
+    [-1,0].forEach(z=>items.push(P({x:-1.48,z,ry:90})));
+    if(kind==='standard'){[-1,0].forEach(z=>items.push(P({x:1.48,z,ry:-90})))}
+    items.push(makeItem('header',{x:0,z:1.48,w:3,y:2.2}));
+    items.push(makeItem('post',{x:-1.475,z:1.475,h:2.2}));
+    items.push(makeItem('post',{x:1.475,z:1.475,h:2.2}));
+    items.push(makeItem('counter',{x:0.55,z:0.8,w:1,h:1,d:0.5}));
+    [-1,0,1].forEach(x=>items.push(makeItem('lamp',{x,z:-1.44,y:2.5})));
+  } else if(kind==='island'){
+    state.booth={...state.booth,w:6,d:3};
+    [-2,-1,0,1,2].forEach(x=>items.push(P({x,z:0,h:2.5})));
+    [-1.5,1.5].forEach(x=>items.push(makeItem('counter',{x,z:1,w:1.2})));
+    [-1.5,1.5].forEach(x=>items.push(makeItem('counter',{x,z:-1,w:1.2,ry:180})));
+    items.push(makeItem('header',{x:0,z:0,y:2.5,w:5,h:0.4,d:0.06}));
+  } else { state.booth={...state.booth,w:3,d:3}; }
+  state.items=items; selectedId=null; rebuildAll(); renderAll(); commit(); frame();
+}
+
+/* ---------- camera ---------- */
+let camAnim=null;
+const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+function goView(v){
+  const s=Math.max(state.booth.w,state.booth.d), t=new THREE.Vector3(0,1.1,0); let p;
+  if(v==='front') p=new THREE.Vector3(0,1.4,s*2.3+1);
+  else if(v==='side') p=new THREE.Vector3(s*2.3+1,1.4,0);
+  else if(v==='top') p=new THREE.Vector3(0,s*2.6+2,0.01), t.set(0,0,0);
+  else p=new THREE.Vector3(s*1.7+0.3,s*1.05+0.2,s*2.1+0.2);
+  $$('[data-view]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.view===v));
+  if(reduced){camera.position.copy(p);orbit.target.copy(t);return}
+  camAnim={p0:camera.position.clone(),t0:orbit.target.clone(),p,t,start:performance.now()};
+}
+const frame=()=>goView('persp');
+
+/* ---------- picking ---------- */
+const ray=new THREE.Raycaster(), ndc=new THREE.Vector2(); let down=null;
+renderer.domElement.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY,gizmo:!!tc.axis||tc.dragging}});
+renderer.domElement.addEventListener('pointerup',e=>{
+  if(!down) return; const moved=Math.hypot(e.clientX-down.x,e.clientY-down.y); const g=down.gizmo; down=null;
+  if(moved>5||g) return;
+  const r=renderer.domElement.getBoundingClientRect();
+  ndc.set(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1);
+  ray.setFromCamera(ndc,camera);
+  const hit=ray.intersectObjects(itemRoot.children,true)[0];
+  let o=hit&&hit.object; while(o&&!o.userData.id) o=o.parent;
+  select(o?o.userData.id:null);
+});
+
+/* ---------- mode ---------- */
+function setMode(m){
+  mode=m; tc.setMode(m);
+  tc.showX=tc.showZ=true; tc.showY=true;
+  if(m==='rotate'){tc.showX=false;tc.showZ=false}
+  $$('[data-mode]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.mode===m));
+}
+
+/* ---------- UI rendering ---------- */
+function labelFor(it){const same=state.items.filter(i=>i.type===it.type);return TYPES[it.type].label+' '+(same.indexOf(it)+1)}
+function renderList(){
+  const ul=$('#itemList');
+  if(!state.items.length){ul.innerHTML='<li class="empty-note">場景是空的。從上方新增背板，或套用範本。</li>';return}
+  ul.innerHTML=state.items.map(it=>`<li><button data-id="${it.id}" aria-current="${it.id===selectedId}"><span>${labelFor(it)}</span><small>${TYPES[it.type].fixed?'':cm(it.w)+'×'+cm(it.h)}</small></button></li>`).join('');
+}
+const num=(label,k,val,unit,step=1)=>`<label class="f">${label}<span class="box"><input type="number" data-k="${k}" data-u="${unit}" step="${step}" value="${val}"><em>${unit==='deg'?'°':'cm'}</em></span></label>`;
+function slot(face,id,title){
+  const has=id&&images[id];
+  return `<div class="slot"><div class="thumb ${has?'has':''}" style="${has?`background-image:url(${images[id]})`:''}">${has?'':'+'}</div>
+  <div class="slot-info"><b>${title}</b><div class="acts">
+  <button class="btn" data-act="upload" data-face="${face}">${has?'更換':'上傳圖片'}</button>
+  ${has?`<button class="btn danger" data-act="clear" data-face="${face}">移除</button>`:''}</div></div></div>`;
+}
+function ratioNote(it){
+  const id=it.imgFront||it.imgBack; const im=id&&imgEls[id]; if(!im) return '';
+  const ia=im.naturalWidth/im.naturalHeight, fa=it.w/it.h;
+  if(Math.abs(ia/fa-1)<0.03) return '<p class="note">圖片比例與版面相符。</p>';
+  return `<p class="note">圖片比例 ${ia.toFixed(2)}，版面比例 ${fa.toFixed(2)}，${it.fit==='stretch'?'目前會被拉伸變形':'目前以置中裁切填滿'}。</p>`;
+}
+function renderInspector(){
+  const el=$('#inspector'), it=byId(selectedId);
+  if(!it){
+    const b=state.booth;
+    el.innerHTML=`<div class="insp-head"><h2>攤位設定</h2><span class="dim">${cm(b.w)} × ${cm(b.d)} cm</span></div>
+    <div class="group"><h3>地坪尺寸</h3><div class="fields two">${num('寬','bw',cm(b.w),'cm',10)}${num('深','bd',cm(b.d),'cm',10)}</div></div>
+    <div class="group"><h3>外觀</h3>
+      <div class="row"><label for="bfloor">地坪顏色</label><input type="color" id="bfloor" data-k="bfloor" value="${b.floor}"></div>
+      <div class="row"><label for="bgrid">顯示 50 cm 格線</label><input type="checkbox" class="switch" id="bgrid" data-k="bgrid" ${b.grid?'checked':''}></div>
+    </div>
+    <div class="group"><h3>使用方式</h3>
+      <p class="note" style="margin:0">點選場景中的背板、楣板或櫃台，就能在這裡調整尺寸並上傳正反面設計圖。尺寸以公分輸入，設計圖會依版面比例自動置中裁切。</p>
+      <div class="kbd"><kbd>W</kbd> 移動　<kbd>E</kbd> 旋轉　<kbd>Ctrl</kbd>+<kbd>D</kbd> 向右複製<br><kbd>Delete</kbd> 刪除　<kbd>Esc</kbd> 取消選取　<kbd>Ctrl</kbd>+<kbd>Z</kbd> 復原</div>
+    </div>`;
+    return;
+  }
+  const T=TYPES[it.type];
+  let h=`<div class="insp-head"><h2>${labelFor(it)}</h2><span class="dim">${T.fixed?'':cm(it.w)+' × '+cm(it.h)+' cm'}</span></div>`;
+  if(!T.fixed) h+=`<div class="group"><h3>尺寸</h3><div class="fields">${num('寬','w',cm(it.w),'cm')}${num('高','h',cm(it.h),'cm')}${num('厚','d',cm(it.d),'cm')}</div></div>`;
+  h+=`<div class="group"><h3>位置</h3><div class="fields two">${num('左右 X','x',cm(it.x),'cm',5)}${num('前後 Z','z',cm(it.z),'cm',5)}${num('離地','y',cm(it.y),'cm',5)}${num('旋轉','ry',Math.round(it.ry),'deg',15)}</div></div>`;
+  h+=`<div class="group"><h3>外觀</h3><div class="row"><label for="icolor">${T.img?'底色':'顏色'}</label><input type="color" id="icolor" data-k="color" value="${it.color}"></div>`;
+  if(it.type==='panel'||it.type==='header'||it.type==='counter') h+=`<div class="row"><label for="iframe">鋁框邊條</label><input type="checkbox" class="switch" id="iframe" data-k="frame" ${it.frame?'checked':''}></div>`;
+  h+=`</div>`;
+  if(T.img){
+    h+=`<div class="group"><h3>設計圖</h3>${slot('front',it.imgFront,'正面')}${slot('back',it.imgBack,'背面')}
+    <div class="row" style="margin-top:12px"><span>圖片填入方式</span><div class="seg"><button data-fit="cover" aria-pressed="${it.fit!=='stretch'}">裁切填滿</button><button data-fit="stretch" aria-pressed="${it.fit==='stretch'}">拉伸</button></div></div>
+    ${ratioNote(it)}
+    <div class="print"><div><span>輸出尺寸</span><b>${cm(it.w)} × ${cm(it.h)} cm</b></div><div><span>150 dpi 建議</span><b>${Math.round(it.w*100/2.54*150)} × ${Math.round(it.h*100/2.54*150)} px</b></div></div></div>`;
+  }
+  h+=`<div class="actions"><button class="btn" data-act="dup">向右複製</button><button class="btn danger" data-act="del">刪除</button></div>`;
+  el.innerHTML=h;
+}
+function liveInspector(){
+  const it=byId(selectedId); if(!it) return;
+  const map={x:cm(it.x),z:cm(it.z),y:cm(it.y),ry:Math.round(it.ry)};
+  for(const k in map){const inp=$(`#inspector [data-k="${k}"]`); if(inp&&document.activeElement!==inp) inp.value=map[k];}
+}
+function renderAll(){renderList();renderInspector();}
+
+/* ---------- inspector events ---------- */
+const insp=$('#inspector');
+function fieldChange(t){
+  const k=t.dataset.k; if(!k) return false;
+  if(k==='bw'||k==='bd'){const v=parseFloat(t.value); if(!(v>=50)) return false; state.booth[k==='bw'?'w':'d']=v/100; buildBooth(); return true}
+  if(k==='bfloor'){state.booth.floor=t.value; buildBooth(); return true}
+  if(k==='bgrid'){state.booth.grid=t.checked; buildBooth(); return true}
+  const it=byId(selectedId); if(!it) return false;
+  if(k==='color'){it.color=t.value}
+  else if(k==='frame'){it.frame=t.checked}
+  else {
+    let v=parseFloat(t.value); if(!isFinite(v)) return false;
+    if(t.dataset.u==='cm') v=v/100;
+    if(['w','h','d'].includes(k)) v=Math.max(0.01,v);
+    if(k==='y') v=Math.max(0,v);
+    it[k]=r3(v);
+  }
+  rebuildItem(it); return true;
+}
+insp.addEventListener('input',e=>{if(fieldChange(e.target)){const d=insp.querySelector('.insp-head .dim');const it=byId(selectedId);if(d&&it&&!TYPES[it.type].fixed)d.textContent=cm(it.w)+' × '+cm(it.h)+' cm';renderList();}});
+insp.addEventListener('change',e=>{if(e.target.dataset.k){commit();renderInspector();}});
+let uploadFace=null;
+insp.addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return; const it=byId(selectedId);
+  if(b.dataset.fit&&it){it.fit=b.dataset.fit; rebuildItem(it); commit(); renderInspector(); return}
+  const a=b.dataset.act; if(!a) return;
+  if(a==='upload'){uploadFace=b.dataset.face; $('#imgInput').value=''; $('#imgInput').click();}
+  else if(a==='clear'&&it){it[b.dataset.face==='front'?'imgFront':'imgBack']=null; rebuildItem(it); commit(); renderInspector();}
+  else if(a==='dup') duplicate();
+  else if(a==='del') removeSel();
+});
+function readAsDataURL(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file)})}
+function loadImg(id,src){return new Promise(res=>{const im=new Image();im.onload=()=>{imgEls[id]=im;res(im)};im.onerror=()=>res(null);im.src=src})}
+async function processImage(file){
+  const raw=await readAsDataURL(file); const im=await loadImg('_tmp',raw); delete imgEls._tmp;
+  if(!im) throw new Error('bad');
+  const max=2400, s=Math.min(1,max/Math.max(im.naturalWidth,im.naturalHeight));
+  if(s===1&&file.size<2.5e6) return raw;
+  const c=document.createElement('canvas'); c.width=Math.round(im.naturalWidth*s); c.height=Math.round(im.naturalHeight*s);
+  c.getContext('2d').drawImage(im,0,0,c.width,c.height);
+  return c.toDataURL(file.type==='image/png'?'image/png':'image/jpeg',0.9);
+}
+$('#imgInput').addEventListener('change',async e=>{
+  const file=e.target.files[0]; const it=byId(selectedId); if(!file||!it) return;
+  try{
+    const url=await processImage(file); const id=uid(); images[id]=url; await loadImg(id,url); imagesDirty=true;
+    it[uploadFace==='back'?'imgBack':'imgFront']=id; rebuildItem(it); commit(); renderInspector(); toast('設計圖已套用');
+  }catch(err){toast('無法讀取這張圖片，請改用 JPG 或 PNG')}
+});
+
+/* ---------- left panel events ---------- */
+$$('[data-add]').forEach(b=>b.addEventListener('click',()=>addItem(b.dataset.add)));
+$$('[data-preset]').forEach(b=>b.addEventListener('click',()=>{
+  if(b.dataset.preset!=='blank'||confirm('清空場景中所有元件？可以用「復原」找回。')) preset(b.dataset.preset);
+}));
+$('#itemList').addEventListener('click',e=>{const b=e.target.closest('button[data-id]'); if(b) select(b.dataset.id)});
+$$('[data-mode]').forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.mode)));
+$$('[data-view]').forEach(b=>b.addEventListener('click',()=>goView(b.dataset.view)));
+$('#snapChk').addEventListener('change',applySnap);
+$('#undoBtn').addEventListener('click',undo);
+$('#redoBtn').addEventListener('click',redo);
+
+window.addEventListener('keydown',e=>{
+  const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='select'||tag==='textarea') return;
+  const mod=e.ctrlKey||e.metaKey;
+  if(mod&&e.key.toLowerCase()==='z'){e.preventDefault(); e.shiftKey?redo():undo(); return}
+  if(mod&&e.key.toLowerCase()==='y'){e.preventDefault(); redo(); return}
+  if(mod&&e.key.toLowerCase()==='d'){e.preventDefault(); duplicate(); return}
+  if(mod) return;
+  if(e.key==='Delete'||e.key==='Backspace'){if(selectedId){e.preventDefault();removeSel()}}
+  else if(e.key==='Escape') select(null);
+  else if(e.key==='w'||e.key==='W') setMode('translate');
+  else if(e.key==='e'||e.key==='E') setMode('rotate');
+});
+
+/* ---------- export / import ---------- */
+let toastT=null;
+function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2200)}
+let downloads=null;
+if(window.claude&&typeof window.claude.use==='function'){
+  window.claude.use('downloads').then(d=>{downloads=d; if(d){$('#exportPngBtn').classList.remove('hidden');$('#exportJsonBtn').classList.remove('hidden');}}).catch(()=>{});
+}
+async function save(filename,data){
+  if(!downloads) return;
+  try{await downloads.save({filename,data}); toast('已匯出 '+filename)}
+  catch(err){ if(err&&err.code==='declined') return; if(err&&err.code==='rate_limited') toast('請稍候再試一次'); else toast('這裡無法匯出檔案') }
+}
+$('#exportPngBtn').addEventListener('click',async()=>{
+  const sel=selectedId; tc.detach(); selBox.visible=false;
+  const pr=renderer.getPixelRatio(); renderer.setPixelRatio(Math.max(2,pr));
+  resize(); renderer.render(scene,camera);
+  const blob=await new Promise(r=>renderer.domElement.toBlob(r,'image/png'));
+  renderer.setPixelRatio(pr); resize(); selectedId=sel; attachSel();
+  if(blob) save('展場設計.png',blob);
+});
+$('#exportJsonBtn').addEventListener('click',()=>{
+  const used=usedImageIds(), imgs={}; used.forEach(id=>{if(images[id]) imgs[id]=images[id]});
+  save('展場專案.json',JSON.stringify({app:'booth-builder',version:1,booth:state.booth,items:state.items,images:imgs}));
+});
+$('#importBtn').addEventListener('click',()=>{$('#jsonInput').value='';$('#jsonInput').click()});
+$('#jsonInput').addEventListener('change',async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  try{
+    const data=JSON.parse(await f.text()); if(!data||!Array.isArray(data.items)||!data.booth) throw 0;
+    for(const id in (data.images||{})){images[id]=data.images[id]; await loadImg(id,data.images[id]);}
+    imagesDirty=true; state={booth:data.booth,items:data.items}; selectedId=null;
+    rebuildAll(); renderAll(); commit(); frame(); toast('專案已匯入');
+  }catch(err){toast('這個檔案不是展場專案（.json）')}
+});
+
+/* ---------- loop ---------- */
+function resize(){const w=host.clientWidth,h=host.clientHeight; if(!w||!h) return; renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix();}
+new ResizeObserver(resize).observe(host); resize();
+function tick(now){
+  if(camAnim){
+    let k=Math.min(1,(now-camAnim.start)/450); const e=1-Math.pow(1-k,3);
+    camera.position.lerpVectors(camAnim.p0,camAnim.p,e); orbit.target.lerpVectors(camAnim.t0,camAnim.t,e);
+    if(k>=1) camAnim=null;
+  }
+  orbit.update();
+  if(selBox.visible&&tc.object) selBox.setFromObject(tc.object);
+  renderer.render(scene,camera);
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+/* ---------- boot ---------- */
+(async()=>{
+  await store.open();
+  const proj=await store.get('project'), imgs=await store.get('images');
+  if(imgs) for(const id in imgs){images[id]=imgs[id]; await loadImg(id,imgs[id]);}
+  if(proj&&proj.booth&&Array.isArray(proj.items)){state=proj; rebuildAll(); renderAll(); last=snap(); updateUndo();}
+  else { last=snap(); preset('standard'); hist=[]; updateUndo(); }
+})();
+})();
+</script>
+</body>
+</html>
